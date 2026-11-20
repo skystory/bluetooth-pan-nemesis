@@ -150,6 +150,8 @@ public final class MainActivity extends Activity {
         private static final long PRESS_DOWN_MS = 70L;
         private static final long PRESS_UP_MS = 180L;
         private static final long SWITCH_SLIDE_MS = 180L;
+        /** 손을 뗄 때 이보다 덜 눌려 있었으면(아주 짧은 탭) 눌렸다 돌아오는 효과를 따로 보여 줌 */
+        private static final float PULSE_THRESHOLD = 0.6f;
 
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Typeface regularFace = Typeface.create("sans", Typeface.NORMAL);
@@ -282,23 +284,32 @@ public final class MainActivity extends Activity {
             canvas.restoreToCount(saveCount);
         }
 
-        private void animatePress(float to, long durationMs) {
-            if (pressAnimator != null) pressAnimator.cancel();
-            pressAnimator = ValueAnimator.ofFloat(pressAmount, to);
-            pressAnimator.setDuration(durationMs);
-            pressAnimator.setInterpolator(new DecelerateInterpolator());
-            pressAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+        /** 지금 값에서 시작해 targets 값들을 차례로 거쳐 가는 눌림 애니메이션 */
+        private void animatePress(long durationMs, float... targets) {
+            float[] values = new float[targets.length + 1];
+            values[0] = pressAmount;
+            System.arraycopy(targets, 0, values, 1, targets.length);
+            ValueAnimator previous = pressAnimator;
+            final ValueAnimator animator = ValueAnimator.ofFloat(values);
+            pressAnimator = animator;
+            // 이전 애니메이션을 멈출 때 그 종료 콜백이 새 애니메이션의 대상을 지우지 않도록, 바꾼 뒤에 멈춤
+            if (previous != null) previous.cancel();
+            animator.setDuration(durationMs);
+            animator.setInterpolator(new DecelerateInterpolator());
+            animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
                 @Override public void onAnimationUpdate(ValueAnimator animation) {
                     pressAmount = (Float) animation.getAnimatedValue();
                     invalidate();
                 }
             });
-            pressAnimator.addListener(new AnimatorListenerAdapter() {
+            animator.addListener(new AnimatorListenerAdapter() {
                 @Override public void onAnimationEnd(Animator animation) {
-                    if (pressAmount <= 0f && touchTarget == TARGET_NONE) pressedTarget = TARGET_NONE;
+                    // 지금 진행 중인 애니메이션이 끝났을 때만 눌림 대상을 지움
+                    if (animation == pressAnimator && pressAmount <= 0f && touchTarget == TARGET_NONE)
+                        pressedTarget = TARGET_NONE;
                 }
             });
-            pressAnimator.start();
+            animator.start();
         }
 
         private void animateSwitch(boolean on) {
@@ -332,28 +343,35 @@ public final class MainActivity extends Activity {
                     touchTarget = hitTarget(x, y);
                     if (touchTarget != TARGET_NONE) {
                         pressedTarget = touchTarget;
-                        animatePress(1f, PRESS_DOWN_MS);
+                        animatePress(PRESS_DOWN_MS, 1f);
                     }
                     return true;
                 case MotionEvent.ACTION_MOVE:
                     // 누른 채로 버튼 밖으로 나가면 취소 (손을 떼도 동작하지 않음)
                     if (touchTarget != TARGET_NONE && hitTarget(x, y) != touchTarget) {
                         touchTarget = TARGET_NONE;
-                        animatePress(0f, PRESS_UP_MS);
+                        animatePress(PRESS_UP_MS, 0f);
                     }
                     return true;
                 case MotionEvent.ACTION_UP: {
                     int releasedTarget = touchTarget;
                     touchTarget = TARGET_NONE;
                     if (releasedTarget != TARGET_NONE) {
-                        animatePress(0f, PRESS_UP_MS);
-                        if (hitTarget(x, y) == releasedTarget) activate(releasedTarget);
+                        boolean activated = hitTarget(x, y) == releasedTarget;
+                        if (activated && pressAmount < PULSE_THRESHOLD) {
+                            // 너무 짧게 탭해서 아직 덜 눌렸으면, 끝까지 눌렸다가 돌아오는 모습을 보여 줌
+                            pressedTarget = releasedTarget;
+                            animatePress(PRESS_DOWN_MS + PRESS_UP_MS, 1f, 0f);
+                        } else {
+                            animatePress(PRESS_UP_MS, 0f);
+                        }
+                        if (activated) activate(releasedTarget);
                     }
                     return true;
                 }
                 case MotionEvent.ACTION_CANCEL:
                     touchTarget = TARGET_NONE;
-                    animatePress(0f, PRESS_UP_MS);
+                    animatePress(PRESS_UP_MS, 0f);
                     return true;
                 default:
                     return true;

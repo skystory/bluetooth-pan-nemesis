@@ -87,8 +87,11 @@ public final class PanControllerService extends Service {
         prefs = getSharedPreferences(MainActivity.PREFS, MODE_PRIVATE);
         adapter = BluetoothAdapter.getDefaultAdapter();
         handledSequence = prefs.getInt("handled_sequence", 0);
-        connectArmed = prefs.getBoolean("requested_connect", false);
-        log("controller=created package=" + getPackageName());
+        // 마지막에 [연결]을 눌러 뒀더라도, 자동 재연결이 꺼져 있으면 시작(재부팅·서비스 재시작) 때 스스로 연결하지 않음
+        boolean automatic = prefs.getBoolean("automatic", false);
+        connectArmed = automatic && prefs.getBoolean("requested_connect", false);
+        log("controller=created package=" + getPackageName() + " automatic=" + automatic
+                + " startup_connect=" + connectArmed);
         if (adapter == null) {
             transition(Phase.ERROR, "NO_ADAPTER", "블루투스 장치를 찾을 수 없음");
             stopSelf();
