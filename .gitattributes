@@ -1,0 +1,9 @@
+# 셸 스크립트·패키지 정의는 Windows에서도 LF 유지 (헤드유닛 셸에서 CRLF는 오류)
+*.sh text eol=lf
+*.py text eol=lf
+*.java text eol=lf
+*.xml text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+NEMESIS.data text eol=lf
+*.png binary

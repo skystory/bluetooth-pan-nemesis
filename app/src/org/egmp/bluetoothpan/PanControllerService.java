@@ -16,6 +16,7 @@ import android.util.Log;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
@@ -89,7 +90,7 @@ public final class PanControllerService extends Service {
         connectArmed = prefs.getBoolean("requested_connect", false);
         log("controller=created package=" + getPackageName());
         if (adapter == null) {
-            transition(Phase.ERROR, "NO_ADAPTER", "No Bluetooth adapter found");
+            transition(Phase.ERROR, "NO_ADAPTER", "블루투스 장치를 찾을 수 없음");
             stopSelf();
             return;
         }
@@ -115,11 +116,11 @@ public final class PanControllerService extends Service {
     @Override public IBinder onBind(Intent intent) { return null; }
 
     private void controlLoop() {
-        transition(Phase.WAITING_FOR_BLUETOOTH, "SERVICE_START", "Checking Bluetooth");
+        transition(Phase.WAITING_FOR_BLUETOOTH, "SERVICE_START", "블루투스 확인 중");
         while (!stop) {
             try { tick(); } catch (Throwable t) {
                 log("tick failed: " + rootMessage(t));
-                transition(Phase.ERROR, "TICK_FAILED", "Bluetooth PAN controller error");
+                transition(Phase.ERROR, "TICK_FAILED", "블루투스 PAN 제어 오류");
             }
             sleep(1000L);
         }
@@ -134,16 +135,16 @@ public final class PanControllerService extends Service {
             proxyWaitStarted = 0L;
             selected = null;
             closeProxy();
-            transition(Phase.WAITING_FOR_BLUETOOTH, "ADAPTER_NOT_ON", "Bluetooth is off");
+            transition(Phase.WAITING_FOR_BLUETOOTH, "ADAPTER_NOT_ON", "블루투스가 꺼져 있음");
             return;
         }
         if (adapterStableSince == 0L) {
             adapterStableSince = now;
-            transition(Phase.BLUETOOTH_SETTLING, "ADAPTER_ON", "Bluetooth is starting");
+            transition(Phase.BLUETOOTH_SETTLING, "ADAPTER_ON", "블루투스 시작 중");
             return;
         }
         if (now - adapterStableSince < BLUETOOTH_STABLE_MS) {
-            transition(Phase.BLUETOOTH_SETTLING, "STABILITY_WINDOW", "Bluetooth is starting");
+            transition(Phase.BLUETOOTH_SETTLING, "STABILITY_WINDOW", "블루투스 시작 중");
             return;
         }
         selected = resolveSelected();
@@ -151,7 +152,7 @@ public final class PanControllerService extends Service {
             if (phoneMissingSince == 0L) phoneMissingSince = now;
             transition(Phase.WAITING_FOR_PHONE, "PHONE_NOT_VISIBLE",
                     now - phoneMissingSince < PHONE_GRACE_MS
-                            ? "Waiting for paired phone" : "Paired phone unavailable");
+                            ? "페어링된 휴대폰을 기다리는 중" : "페어링된 휴대폰을 찾을 수 없음");
             return;
         }
         phoneMissingSince = 0L;
@@ -160,11 +161,11 @@ public final class PanControllerService extends Service {
             requestProfileProxy(now);
             if (now - proxyWaitStarted > PROXY_TIMEOUT_MS) {
                 proxyRequestAt = 0L;
-                transition(Phase.ERROR, "PROXY_TIMEOUT", "Bluetooth PAN service unavailable");
+                transition(Phase.ERROR, "PROXY_TIMEOUT", "블루투스 PAN 서비스를 사용할 수 없음");
             } else {
                 transition(phase == Phase.RECOVERING_PAN ? Phase.RECOVERING_PAN : Phase.STARTING_PAN,
                         "PROXY_PENDING", phase == Phase.RECOVERING_PAN
-                                ? "Repairing Bluetooth PAN" : "Starting Bluetooth PAN");
+                                ? "블루투스 PAN 복구 중" : "블루투스 PAN 시작 중");
             }
             return;
         }
@@ -177,9 +178,18 @@ public final class PanControllerService extends Service {
             immediateFailureCount = 0;
             recoveryCount = 0;
             connectArmed = false;
-            disconnectIssued = false;
-            if (!desiredConnected()) beginDisconnect(now, link);
-            else transition(Phase.CONNECTED, "NETWORK_CONNECTED", connectedMessage());
+            if (!desiredConnected()) {
+                // 해제 요청은 한 번만 보내고, 네트워크가 끝내 내려가지 않으면 오류로 알림
+                if (phaseDeadline != 0L && now >= phaseDeadline) {
+                    transition(Phase.ERROR, "DISCONNECT_TIMEOUT", "연결 해제 실패 또는 시간 초과");
+                    return;
+                }
+                beginDisconnect(now, link);
+            } else {
+                disconnectIssued = false;
+                phaseDeadline = 0L;   // 연결 중에 남은 기한이 다음 해제의 기한으로 쓰이지 않도록
+                transition(Phase.CONNECTED, "NETWORK_CONNECTED", connectedMessage());
+            }
             return;
         }
         if (!desiredConnected()) {
@@ -213,26 +223,26 @@ public final class PanControllerService extends Service {
             if (phase != Phase.CONFIGURING_NETWORK) {
                 phaseDeadline = now + NETWORK_TIMEOUT_MS;
                 transition(Phase.CONFIGURING_NETWORK, "PAN_LINK_CONNECTED",
-                        "Bluetooth connected; configuring network");
+                        "블루투스 연결됨, 네트워크 설정 중");
             } else if (now >= phaseDeadline) {
-                transition(Phase.ERROR, "NETWORK_TIMEOUT", "Connected to phone, but no network");
+                transition(Phase.ERROR, "NETWORK_TIMEOUT", "휴대폰과 연결됐지만 네트워크가 없음");
             }
             return;
         }
         if (link == CONNECTING) {
             disconnectedConnectPolls = 0;
-            transition(Phase.CONNECTING, "PAN_LINK_CONNECTING", "Connecting to " + name(selected));
+            transition(Phase.CONNECTING, "PAN_LINK_CONNECTING", name(selected) + "에 연결 중");
             if (phaseDeadline == 0L) phaseDeadline = now + CONNECT_TIMEOUT_MS;
-            if (now >= phaseDeadline) finishConnectFailure(now, "CONNECT_TIMEOUT", "Phone did not respond");
+            if (now >= phaseDeadline) finishConnectFailure(now, "CONNECT_TIMEOUT", "휴대폰이 응답하지 않음");
             return;
         }
         if (link == DISCONNECTING) {
             if (phaseDeadline == 0L) phaseDeadline = now + DISCONNECT_TIMEOUT_MS;
             if (now >= phaseDeadline) {
-                transition(Phase.ERROR, "STALE_DISCONNECT", "Previous disconnect did not finish");
+                transition(Phase.ERROR, "STALE_DISCONNECT", "이전 연결 해제가 끝나지 않음");
                 return;
             }
-            transition(Phase.DISCONNECTING, "PAN_LINK_DISCONNECTING", "Waiting for previous disconnect");
+            transition(Phase.DISCONNECTING, "PAN_LINK_DISCONNECTING", "이전 연결 해제를 기다리는 중");
             return;
         }
         if (phase == Phase.CONNECTING) {
@@ -240,16 +250,16 @@ public final class PanControllerService extends Service {
             if (disconnectedConnectPolls >= 3) {
                 immediateFailureCount++;
                 if (immediateFailureCount >= 2 && recoveryCount == 0) beginPanRecovery(now);
-                else finishConnectFailure(now, "IMMEDIATE_DROP", "PAN rejected; check Bluetooth tethering");
+                else finishConnectFailure(now, "IMMEDIATE_DROP", "연결이 거부됨\n휴대폰의 블루투스 테더링을 켜 주세요");
             } else if (now >= phaseDeadline) {
-                finishConnectFailure(now, "CONNECT_TIMEOUT", "Phone did not respond");
+                finishConnectFailure(now, "CONNECT_TIMEOUT", "휴대폰이 응답하지 않음");
             }
             return;
         }
         if (phase == Phase.RECOVERING_PAN) {
             if (now >= phaseDeadline) {
                 connectArmed = true;
-                transition(Phase.READY_DISCONNECTED, "RECOVERY_COMPLETE", "Bluetooth PAN repaired");
+                transition(Phase.READY_DISCONNECTED, "RECOVERY_COMPLETE", "블루투스 PAN 복구됨");
             }
             return;
         }
@@ -261,7 +271,7 @@ public final class PanControllerService extends Service {
             nextReconnectAt = now + RECONNECT_COOLDOWN_MS;
             transition(prefs.getBoolean("automatic", false) ? Phase.RECONNECT_COOLDOWN : Phase.READY_DISCONNECTED,
                     "CONNECTION_LOST", prefs.getBoolean("automatic", false)
-                            ? "Connection lost; retrying shortly" : "Connection lost");
+                            ? "연결 끊김, 곧 다시 시도" : "연결 끊김");
             return;
         }
         if (prefs.getBoolean("automatic", false) && now >= nextReconnectAt) {
@@ -271,10 +281,10 @@ public final class PanControllerService extends Service {
         }
         if (phase == Phase.RECONNECT_COOLDOWN) {
             if (prefs.getBoolean("automatic", false))
-                transition(Phase.RECONNECT_COOLDOWN, "COOLDOWN", "Connection lost; retrying shortly");
-            else transition(Phase.READY_DISCONNECTED, "AUTO_RECONNECT_DISABLED", "Connection lost");
+                transition(Phase.RECONNECT_COOLDOWN, "COOLDOWN", "연결 끊김, 곧 다시 시도");
+            else transition(Phase.READY_DISCONNECTED, "AUTO_RECONNECT_DISABLED", "연결 끊김");
         } else if (phase != Phase.ERROR && phase != Phase.READY_DISCONNECTED) {
-            transition(Phase.READY_DISCONNECTED, "IDLE", "Disconnected");
+            transition(Phase.READY_DISCONNECTED, "IDLE", "연결 안 됨");
         }
     }
 
@@ -284,11 +294,11 @@ public final class PanControllerService extends Service {
         if (link == DISCONNECTED || link == UNKNOWN) {
             disconnectIssued = false;
             phaseDeadline = 0L;
-            transition(Phase.READY_DISCONNECTED, "DISCONNECT_CONFIRMED", "Disconnected");
+            transition(Phase.READY_DISCONNECTED, "DISCONNECT_CONFIRMED", "연결 안 됨");
             return;
         }
         if (phaseDeadline != 0L && now >= phaseDeadline) {
-            transition(Phase.ERROR, "DISCONNECT_TIMEOUT", "Disconnect failed or timed out");
+            transition(Phase.ERROR, "DISCONNECT_TIMEOUT", "연결 해제 실패 또는 시간 초과");
             return;
         }
         beginDisconnect(now, link);
@@ -302,11 +312,11 @@ public final class PanControllerService extends Service {
         disconnectedConnectPolls = 0;
         phaseDeadline = now + CONNECT_TIMEOUT_MS;
         if (Boolean.TRUE.equals(accepted))
-            transition(Phase.CONNECTING, "CONNECT_ACCEPTED", "Connecting to " + name(selected));
+            transition(Phase.CONNECTING, "CONNECT_ACCEPTED", name(selected) + "에 연결 중");
         else {
             immediateFailureCount++;
             if (immediateFailureCount >= 2 && recoveryCount == 0) beginPanRecovery(now);
-            else finishConnectFailure(now, "CONNECT_REFUSED", "PAN service refused connection");
+            else finishConnectFailure(now, "CONNECT_REFUSED", "PAN 서비스가 연결을 거부함");
         }
     }
 
@@ -319,12 +329,18 @@ public final class PanControllerService extends Service {
 
     private void beginDisconnect(long now, int link) {
         if (phaseDeadline == 0L) phaseDeadline = now + DISCONNECT_TIMEOUT_MS;
-        if (!disconnectIssued && link != DISCONNECTING) {
-            Object accepted = invoke("disconnect", selected, true);
-            log("action=PAN_DISCONNECT request=" + activeRequestId + " accepted=" + accepted);
-            disconnectIssued = true;
+        if (!disconnectIssued) {
+            boolean issued = false;
+            for (BluetoothDevice device : disconnectTargets()) {
+                if (connectionState(device, false) == DISCONNECTING) continue;
+                Object accepted = invoke("disconnect", device, true);
+                log("action=PAN_DISCONNECT request=" + activeRequestId + " device=" + label(device)
+                        + " accepted=" + accepted);
+                issued = true;
+            }
+            disconnectIssued = issued;   // 모두 이미 해제 중이면 다음 틱에 다시 확인
         }
-        transition(Phase.DISCONNECTING, "DISCONNECT_REQUESTED", "Disconnecting from " + name(selected));
+        transition(Phase.DISCONNECTING, "DISCONNECT_REQUESTED", name(selected) + " 연결 해제 중");
     }
 
     private void beginPanRecovery(long now) {
@@ -346,7 +362,29 @@ public final class PanControllerService extends Service {
         proxyRequestAt = 0L;
         proxyWaitStarted = now;
         phaseDeadline = now + 3000L;
-        transition(Phase.RECOVERING_PAN, "PAN_RECOVERY", "Repairing Bluetooth PAN");
+        transition(Phase.RECOVERING_PAN, "PAN_RECOVERY", "블루투스 PAN 복구 중");
+    }
+
+    /** 실제로 PAN에 연결된 기기들 (선택된 휴대폰이 아니어도 포함) */
+    private List<BluetoothDevice> connectedPanDevices() {
+        List<BluetoothDevice> connected = new ArrayList<BluetoothDevice>();
+        BluetoothProfile profile = pan;
+        if (profile == null) return connected;
+        try {
+            List<BluetoothDevice> reported = profile.getConnectedDevices();
+            if (reported != null) connected.addAll(reported);
+        } catch (Throwable ignored) {}
+        return connected;
+    }
+
+    /** 해제할 기기: 실제로 연결된 PAN 기기 전부 + 선택된 휴대폰 */
+    private List<BluetoothDevice> disconnectTargets() {
+        List<BluetoothDevice> targets = connectedPanDevices();
+        boolean selectedIncluded = false;
+        for (BluetoothDevice device : targets)
+            if (selected != null && device.getAddress().equalsIgnoreCase(selected.getAddress())) selectedIncluded = true;
+        if (selected != null && !selectedIncluded) targets.add(selected);
+        return targets;
     }
 
     private BluetoothDevice resolveSelected() {
@@ -463,8 +501,10 @@ public final class PanControllerService extends Service {
 
     private String connectedMessage() {
         String address = interfaceAddress("bt-pan");
-        return "Connected through " + name(selected)
-                + (address.length() == 0 ? "" : "\nAddress: " + address);
+        List<BluetoothDevice> connected = connectedPanDevices();
+        BluetoothDevice through = connected.isEmpty() ? selected : connected.get(0);
+        return name(through) + " 통해 연결됨"
+                + (address.length() == 0 ? "" : "\n주소: " + address);
     }
 
     private boolean desiredConnected() { return prefs.getBoolean("requested_connect", false); }
@@ -489,7 +529,7 @@ public final class PanControllerService extends Service {
     private static void sleep(long ms) {
         try { Thread.sleep(ms); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
     }
-    private static String name(BluetoothDevice d) { return d.getName() == null ? "phone" : d.getName(); }
+    private static String name(BluetoothDevice d) { return d.getName() == null ? "휴대폰" : d.getName(); }
     private static String label(BluetoothDevice d) { return name(d) + "(" + d.getAddress() + ")"; }
     private static String rootMessage(Throwable t) {
         while (t.getCause() != null) t = t.getCause();

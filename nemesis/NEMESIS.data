@@ -1,12 +1,12 @@
 [nemesis]
 version=1.1
 id=bluetooth.pan
-name=Bluetooth PAN
+name=블루투스 PAN (Bluetooth PAN)
 type=application,service
-package-version=3.0.0
-short-desc=Connects the head unit through a phone's Bluetooth hotspot.
-detailed-desc=State-driven Bluetooth PAN connection control with live status and guarded recovery.
-os=NEEV23.USA.*.260507
+package-version=3.1.0
+short-desc=휴대폰의 블루투스 테더링으로 헤드유닛을 인터넷에 연결합니다.
+detailed-desc=페어링된 휴대폰의 블루투스 테더링(PAN)으로 헤드유닛을 인터넷에 연결합니다. 실시간 상태 표시, 연결 끊김 감지, 안전한 PAN 복구, 선택형 자동 재연결을 지원합니다.
+os=NEEV23.USA.*.260507,DN823HEV.KOR.*.260902
 models=any
 depends=!iphone.bluetooth.pan
 preuninstall=scripts/preuninstall.sh

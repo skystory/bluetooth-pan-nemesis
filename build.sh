@@ -55,4 +55,9 @@ with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as z:
         if p.is_file(): z.write(p, p.relative_to(source).as_posix())
 PY
 
-shasum -a 256 "$DIST/bluetooth.pan-$VERSION.zip" "$DIST/bluetooth.pan-$VERSION-usb.zip"
+# macOS는 shasum, Linux·Git Bash는 sha256sum
+if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$DIST/bluetooth.pan-$VERSION.zip" "$DIST/bluetooth.pan-$VERSION-usb.zip"
+else
+    sha256sum "$DIST/bluetooth.pan-$VERSION.zip" "$DIST/bluetooth.pan-$VERSION-usb.zip"
+fi

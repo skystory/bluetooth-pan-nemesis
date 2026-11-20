@@ -1,126 +1,133 @@
-# Bluetooth PAN for NEMESIS
+# 블루투스 PAN (Bluetooth PAN for NEMESIS)
 
-A small Android 4.4 application and NEMESIS 1.16 package that connects a
-compatible Hyundai/Kia head unit to a paired phone's internet connection using
-Bluetooth PAN.
+현대·기아 헤드유닛을 **페어링된 휴대폰의 블루투스 테더링(PAN)**으로 인터넷에 연결하는
+Android 4.4 앱과 NEMESIS 1.16 패키지입니다.
 
-The package uses the Bluetooth PANU implementation already present in the stock firmware. It does not replace `Bluetooth.apk`, patch the Bluetooth stack, or require HMG-API.
+순정 펌웨어에 이미 들어 있는 블루투스 PANU 기능을 그대로 씁니다. `Bluetooth.apk`를 바꾸거나
+블루투스 스택을 고치지 않으며, HMG-API도 필요 없습니다.
 
-## Tested system
+이 저장소는 Isaac Wisdom이 만든 Bluetooth PAN 3.0.0을 포크해
+**한글화**, **버튼 눌림 효과**, **버그 수정**을 더한 버전(3.1.0)입니다. 자세한 내용은
+[CHANGELOG.md](CHANGELOG.md)를 참고하세요.
 
-- Head unit platform: NEEV23
-- Region: USA
-- Firmware: 260507
-- Android: 4.4.2
-- NEMESIS: 1.16.2
+## 시험된 환경
 
-The tested firmware is a full NEMESIS compatibility match. Other head-unit
-models are shown as partial compatibility because the implementation uses the
-standard Gen5W Bluetooth PAN APIs, but they have not yet been tested.
+- 원본 시험 환경: 헤드유닛 NEEV23(미국), 펌웨어 260507, Android 4.4.2, NEMESIS 1.16.2
+- 이 포크의 대상: 쏘나타 하이브리드(DN8 HEV) 국내형, 펌웨어 260902 (`DN823HEV.KOR`)
+  : NEMESIS 호환 목록(`os`)에 추가했지만 **실차 동작은 아직 검증 전**입니다.
 
-## Features
+그 밖의 Gen5W 헤드유닛은 같은 표준 블루투스 PAN API를 쓰므로 NEMESIS에 "부분 호환"으로 표시됩니다.
 
-- Launchable from NEMESIS Manager's **My Packages** screen
-- Paired-phone selection
-- Manual connect and disconnect
-- Continuous reconciliation of actual PAN/network state, including external
-  connections and unexpected drops
-- Bluetooth, DHCP, and assigned-address status
-- Optional reconnect when the controller starts, disabled by default
-- Automatic enablement and initialization of the stock PAN profile
-- Persistent connection diagnostics through NEMESIS's built-in log collector
+## 기능
 
-## Install
+- NEMESIS Manager의 **My Packages** 화면에서 실행
+- 페어링된 휴대폰 선택 (연결 중에는 다른 휴대폰으로 바꾸지 않음)
+- 수동 연결과 연결 해제
+- 실제 PAN·네트워크 상태를 계속 확인 (밖에서 맺은 연결, 갑작스런 끊김 포함)
+- 블루투스, DHCP, 할당된 주소 표시
+- 선택형 자동 재연결 (기본 꺼짐)
+- 순정 PAN 프로필 자동 활성화·초기화
+- NEMESIS 로그 수집기와 연동되는 연결 진단 로그
+- **버튼 눌림 효과:** 누르는 동안 버튼이 살짝 줄어들고 밝아지며, 손을 떼면 되돌아옵니다.
+  누른 채로 버튼 밖으로 손가락을 빼면 취소됩니다. 클릭음(시스템 터치음 설정을 따름)이 나고,
+  연결·해제를 누르면 상태 카드에 "요청됨"이 바로 표시됩니다. 자동 재연결 스위치는 미끄러지듯 움직입니다.
 
-### USB drive (recommended)
+## 설치
 
-Download `bluetooth.pan-<version>-usb.zip` and extract it to the root of
-a USB drive. The result should look like this:
+### USB 메모리 (권장)
+
+`bluetooth.pan-<버전>-usb.zip`을 USB 메모리 최상위에 압축 해제합니다. 결과는 아래와 같아야 합니다.
 
 ```text
 NEMESIS.data
 README.txt
 packages/
-└── bluetooth.pan-<version>.zip
+└── bluetooth.pan-<버전>.zip
 ```
 
-Insert the drive after Android has started and accept the NEMESIS installation
-prompt.
+Android가 다 켜진 뒤 USB를 꽂고 NEMESIS 설치 안내를 확인합니다.
 
-### Package Store or ADB
+### 패키지 스토어 또는 ADB
 
-The bare `bluetooth.pan-<version>.zip` is the canonical package archive
-used for Package Store submission and direct installation:
+압축하지 않은 `bluetooth.pan-<버전>.zip`이 패키지 스토어 등록과 직접 설치에 쓰는 원본 패키지입니다.
 
 ```sh
-adb push bluetooth.pan-3.0.0.zip /data/local/tmp/bluetooth.pan.zip
+adb push bluetooth.pan-3.1.0.zip /data/local/tmp/bluetooth.pan.zip
 adb shell '/system/xbin/nemesis install /data/local/tmp/bluetooth.pan.zip'
 adb shell '/system/xbin/nemesis pkg-launch bluetooth.pan'
 ```
 
-The phone must already be paired with the vehicle. Enable its Bluetooth
-tethering or Bluetooth hotspot service before pressing Connect. On some phones,
-this is separate from the Wi-Fi hotspot setting.
+휴대폰은 미리 차량과 페어링돼 있어야 합니다. [연결]을 누르기 전에 휴대폰에서 **블루투스 테더링**
+(또는 블루투스 핫스팟)을 켜 주세요. 휴대폰에 따라 Wi-Fi 핫스팟과 별도 설정입니다.
 
-### Migrating from versions 2.0.1 and earlier
+### 2.0.1 이하 버전에서 옮겨 오기
 
-Version 3.0.0 uses the new NEMESIS ID `bluetooth.pan` and Android package
-`org.egmp.bluetoothpan`. Uninstall the legacy package before installing 3.0.0:
+3.0.0부터 NEMESIS ID가 `bluetooth.pan`, Android 패키지가 `org.egmp.bluetoothpan`으로 바뀌었습니다.
+3.x를 설치하기 전에 예전 패키지를 지우세요.
 
 ```sh
 adb shell '/system/xbin/nemesis uninstall iphone.bluetooth.pan'
 ```
 
-NEMESIS will refuse to install both identities together, preventing two
-supervisors from attempting to control the same stock PAN service.
+NEMESIS는 두 패키지를 함께 설치하지 않으므로, 두 감시 프로세스가 같은 PAN 서비스를 동시에 다루는 일은 없습니다.
 
-## Diagnostics
+## 진단
 
 ```sh
 adb shell '/system/xbin/nemesis service status bluetooth.pan/pan-supervisor'
 adb shell '/system/xbin/nemesis log service bluetooth.pan/pan-supervisor'
 ```
 
-The supervisor log includes the app's connection requests, PAN profile state,
-Bluetooth connection transitions, network state, and Android runtime failures.
-It is also included when **Logs → Copy to USB** is used in NEMESIS Manager. A
-successful connection creates `bt-pan` with an address assigned by the phone.
+감시 로그에는 앱의 연결 요청, PAN 프로필 상태, 블루투스 연결 변화, 네트워크 상태, Android 런타임
+오류가 남습니다. NEMESIS Manager의 **Logs → Copy to USB**에도 포함됩니다. 연결에 성공하면
+휴대폰이 할당한 주소로 `bt-pan` 인터페이스가 생깁니다.
 
-## Build
+## 빌드
 
-Requirements:
+필요한 것:
 
 - JDK 17
-- Android SDK platform and build-tools (`aapt2`, `d8`, `apksigner`)
-- `zip` and Python 3
+- Android SDK platform과 build-tools (`aapt2`, `d8`, `apksigner`)
+- `zip`, Python 3
 
-Set `ANDROID_HOME`, then run:
+`ANDROID_HOME`을 설정한 뒤 실행합니다.
 
 ```sh
 ./build.sh
 ```
 
-The build produces exactly two release artifacts in `dist/`:
+`dist/`에 두 파일이 만들어집니다.
 
-- `bluetooth.pan-<version>-usb.zip` — recommended USB distribution
-- `bluetooth.pan-<version>.zip` — Package Store and direct-install archive
+- `bluetooth.pan-<버전>-usb.zip`: USB 설치용 (권장)
+- `bluetooth.pan-<버전>.zip`: 패키지 스토어·직접 설치용
 
-You may provide an external signing key:
+서명 키를 따로 지정할 수 있습니다.
 
 ```sh
 APP_KEY=/secure/path/bluetooth-pan.p12 APP_KEY_PASS='…' ./build.sh
 ```
 
-Without `APP_KEY`, the build creates a temporary development key. NEMESIS package
-updates uninstall the previous APK before installing its replacement, so APK
-signer continuity is not required. This also means an update resets the app's
-saved phone selection and reconnect preference. Keys and build output are
-ignored by Git and must never be committed.
+`APP_KEY`가 없으면 임시 개발용 키를 만듭니다. NEMESIS는 업데이트할 때 이전 APK를 지우고 새로
+설치하므로 서명 키가 같을 필요는 없습니다. 대신 업데이트하면 앱에 저장된 휴대폰 선택과 자동 재연결
+설정이 초기화됩니다. 키와 빌드 결과물은 Git에서 제외되며 절대 커밋하지 마세요.
 
-## Safety and limitations
+> **Windows 참고:** `build.sh`는 macOS·Linux 기준입니다. Windows의 build-tools는 `d8.bat`,
+> `apksigner.bat`, `aapt2.exe`라서 Git Bash에서 그대로는 찾지 못하고, Git Bash에는 `zip`도 없습니다.
+> WSL(Linux용 Android SDK)에서 빌드하는 것을 권합니다.
 
-This is experimental software for an in-vehicle infotainment system. Do not interact with it while driving. Automatic reconnect is opt-in. The current package has only been tested on the system listed above.
+## 테스트
 
-## License
+```sh
+sh tests/test-supervisor.sh
+```
+
+가짜 `am`, `pm`, `dumpsys`, `logcat`, `sleep`으로 감시 스크립트의 시작 절차와 로그 수집을 확인합니다.
+
+## 안전과 한계
+
+차량 인포테인먼트용 실험적 소프트웨어입니다. 운전 중에는 조작하지 마세요. 자동 재연결은
+직접 켜야 동작합니다. 현재 패키지는 위의 원본 시험 환경에서만 검증됐습니다.
+
+## 라이선스
 
 GPL-3.0-or-later.
