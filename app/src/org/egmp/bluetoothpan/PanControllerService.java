@@ -16,7 +16,6 @@ import android.util.Log;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
@@ -332,16 +331,10 @@ public final class PanControllerService extends Service {
 
     private void beginDisconnect(long now, int link) {
         if (phaseDeadline == 0L) phaseDeadline = now + DISCONNECT_TIMEOUT_MS;
-        if (!disconnectIssued) {
-            boolean issued = false;
-            for (BluetoothDevice device : disconnectTargets()) {
-                if (connectionState(device, false) == DISCONNECTING) continue;
-                Object accepted = invoke("disconnect", device, true);
-                log("action=PAN_DISCONNECT request=" + activeRequestId + " device=" + label(device)
-                        + " accepted=" + accepted);
-                issued = true;
-            }
-            disconnectIssued = issued;   // 모두 이미 해제 중이면 다음 틱에 다시 확인
+        if (!disconnectIssued && link != DISCONNECTING) {
+            Object accepted = invoke("disconnect", selected, true);
+            log("action=PAN_DISCONNECT request=" + activeRequestId + " accepted=" + accepted);
+            disconnectIssued = true;
         }
         transition(Phase.DISCONNECTING, "DISCONNECT_REQUESTED", name(selected) + " 연결 해제 중");
     }
@@ -366,28 +359,6 @@ public final class PanControllerService extends Service {
         proxyWaitStarted = now;
         phaseDeadline = now + 3000L;
         transition(Phase.RECOVERING_PAN, "PAN_RECOVERY", "블루투스 PAN 복구 중");
-    }
-
-    /** 실제로 PAN에 연결된 기기들 (선택된 휴대폰이 아니어도 포함) */
-    private List<BluetoothDevice> connectedPanDevices() {
-        List<BluetoothDevice> connected = new ArrayList<BluetoothDevice>();
-        BluetoothProfile profile = pan;
-        if (profile == null) return connected;
-        try {
-            List<BluetoothDevice> reported = profile.getConnectedDevices();
-            if (reported != null) connected.addAll(reported);
-        } catch (Throwable ignored) {}
-        return connected;
-    }
-
-    /** 해제할 기기: 실제로 연결된 PAN 기기 전부 + 선택된 휴대폰 */
-    private List<BluetoothDevice> disconnectTargets() {
-        List<BluetoothDevice> targets = connectedPanDevices();
-        boolean selectedIncluded = false;
-        for (BluetoothDevice device : targets)
-            if (selected != null && device.getAddress().equalsIgnoreCase(selected.getAddress())) selectedIncluded = true;
-        if (selected != null && !selectedIncluded) targets.add(selected);
-        return targets;
     }
 
     private BluetoothDevice resolveSelected() {
@@ -504,9 +475,7 @@ public final class PanControllerService extends Service {
 
     private String connectedMessage() {
         String address = interfaceAddress("bt-pan");
-        List<BluetoothDevice> connected = connectedPanDevices();
-        BluetoothDevice through = connected.isEmpty() ? selected : connected.get(0);
-        return name(through) + " 통해 연결됨"
+        return name(selected) + " 통해 연결됨"
                 + (address.length() == 0 ? "" : "\n주소: " + address);
     }
 

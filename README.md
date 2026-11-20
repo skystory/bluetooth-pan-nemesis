@@ -30,8 +30,7 @@ Android 4.4 앱과 NEMESIS 1.16 패키지입니다.
 - 순정 PAN 프로필 자동 활성화·초기화
 - NEMESIS 로그 수집기와 연동되는 연결 진단 로그
 - **버튼 눌림 효과:** 누르는 동안 버튼이 살짝 줄어들고 밝아지며, 손을 떼면 되돌아옵니다.
-  아주 짧게 탭해도 눌렸다 돌아오는 모습이 보입니다. 누른 채로 버튼 밖으로 손가락을 빼면 취소됩니다. 클릭음(시스템 터치음 설정을 따름)이 나고,
-  연결·해제를 누르면 상태 카드에 "요청됨"이 바로 표시됩니다. 자동 재연결 스위치는 미끄러지듯 움직입니다.
+  아주 짧게 탭해도 눌렸다 돌아오는 모습이 보입니다. 누른 채로 버튼 밖으로 손가락을 빼면 취소됩니다. 연결·해제를 누르면 상태 카드에 "요청됨"이 바로 표시됩니다. 자동 재연결 스위치는 미끄러지듯 움직입니다.
 
 ## 설치
 
@@ -53,7 +52,7 @@ Android가 다 켜진 뒤 USB를 꽂고 NEMESIS 설치 안내를 확인합니다
 압축하지 않은 `bluetooth.pan-<버전>.zip`이 패키지 스토어 등록과 직접 설치에 쓰는 원본 패키지입니다.
 
 ```sh
-adb push bluetooth.pan-3.1.1.zip /data/local/tmp/bluetooth.pan.zip
+adb push bluetooth.pan-3.1.2.zip /data/local/tmp/bluetooth.pan.zip
 adb shell '/system/xbin/nemesis install /data/local/tmp/bluetooth.pan.zip'
 adb shell '/system/xbin/nemesis pkg-launch bluetooth.pan'
 ```

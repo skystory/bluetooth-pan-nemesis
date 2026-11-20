@@ -17,9 +17,7 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.SystemClock;
-import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
-import android.view.SoundEffectConstants;
 import android.view.View;
 import android.view.animation.DecelerateInterpolator;
 
@@ -178,8 +176,6 @@ public final class MainActivity extends Activity {
 
         Dashboard() {
             super(MainActivity.this);
-            setSoundEffectsEnabled(true);
-            setHapticFeedbackEnabled(true);
             switchPosition = prefs.getBoolean("automatic", false) ? 1f : 0f;
         }
 
@@ -379,8 +375,7 @@ public final class MainActivity extends Activity {
         }
 
         private void activate(int target) {
-            playSoundEffect(SoundEffectConstants.CLICK);
-            performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+            // 클릭음·햅틱은 쓰지 않음 (원본 3.0.0과 같은 시스템 호출만 사용, 눌림은 화면 효과로만 표시)
             if (target == TARGET_PHONE) selectNextPhone();
             else if (target == TARGET_CONNECT) request(true);
             else if (target == TARGET_DISCONNECT) request(false);

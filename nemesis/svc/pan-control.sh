@@ -5,7 +5,7 @@
 # 이 스크립트의 출력이 NEMESIS 서비스 로그가 되며, 걸러낸 logcat 자식 프로세스가
 # 앱과 블루투스 진단 로그를 같은 로그에 남깁니다.
 
-VERSION=3.1.1
+VERSION=3.1.2
 
 PAN_COMPONENT=com.android.bluetooth/.pan.PanService
 APP_COMPONENT=org.egmp.bluetoothpan/org.egmp.bluetoothpan.PanControllerService
