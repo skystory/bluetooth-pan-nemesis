@@ -97,10 +97,11 @@ adb shell '/system/xbin/nemesis log service bluetooth.pan/pan-supervisor'
 ./build.sh
 ```
 
-`dist/`에 두 파일이 만들어집니다.
+`dist/`에는 **GitHub 릴리즈에 올리는 파일만** 만들어집니다(빌드 중간 파일은 `.build/`에 남고 올리지 않습니다).
 
 - `bluetooth.pan-<버전>-usb.zip`: USB 설치용 (권장)
-- `bluetooth.pan-<버전>.zip`: 패키지 스토어·직접 설치용
+- `bluetooth.pan-<버전>.zip`: 패키지 스토어·ADB 직접 설치용
+- `SHA256SUMS`: 위 두 파일의 체크섬
 
 서명 키를 따로 지정할 수 있습니다.
 

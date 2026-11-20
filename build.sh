@@ -55,9 +55,6 @@ with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as z:
         if p.is_file(): z.write(p, p.relative_to(source).as_posix())
 PY
 
-# macOS는 shasum, Linux·Git Bash는 sha256sum
-if command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$DIST/bluetooth.pan-$VERSION.zip" "$DIST/bluetooth.pan-$VERSION-usb.zip"
-else
-    sha256sum "$DIST/bluetooth.pan-$VERSION.zip" "$DIST/bluetooth.pan-$VERSION-usb.zip"
-fi
+# 릴리즈 파일 두 개의 체크섬을 dist/SHA256SUMS로 (macOS는 shasum, Linux·Git Bash는 sha256sum)
+if command -v shasum >/dev/null 2>&1; then SHA256="shasum -a 256"; else SHA256="sha256sum"; fi
+(cd "$DIST" && $SHA256 "bluetooth.pan-$VERSION-usb.zip" "bluetooth.pan-$VERSION.zip" > SHA256SUMS && cat SHA256SUMS)
